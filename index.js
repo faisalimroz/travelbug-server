@@ -38,6 +38,7 @@ async function run() {
     const reviewCollection = client.db('travelbug').collection('review');
     app.post('/payments', async (req, res) => {
       const payment = req.body;
+      console.log(payment,'paymenttt')
       const result = await paymentCollection.insertOne(payment)
       res.send(result)
     })
@@ -64,7 +65,26 @@ async function run() {
       }
     });
 
-
+    app.get('/allorder', async (req, res) => {
+      try {
+          
+          const query = {};
+          console.log('user mail', query)
+  
+          // Use toArray to convert the cursor to an array
+          const transactions = await paymentCollection.find(query).toArray();
+  
+          if (transactions.length > 0) {
+              res.json(transactions);
+              console.log(transactions);
+          } else {
+              res.status(404).json({ error: 'User not found' });
+          }
+      } catch (error) {
+          console.error('Error fetching user history', error);
+          res.status(500).json({ error: 'Internal server error' });
+      }
+  });
     app.get('/package', async (req, res) => {
 
       const search = req.query.search;
@@ -101,6 +121,27 @@ async function run() {
       console.log(result)
       res.send({ totalPackage: result })
     })
+    app.get('/orders/:email', async (req, res) => {
+      try {
+          const userEmail = req.params.email;
+          console.log(userEmail)
+          const query = { user: userEmail };
+          const transactions = await paymentCollection.find(query).toArray();
+
+          console.log('hey',transactions)
+    
+          if (transactions) {
+              res.json(transactions);
+              console.log(transactions)
+          } else {
+              res.status(404).json({ error: 'User not found' });
+          }
+      } catch (error) {
+          console.error('Error fetching user history', error);
+          res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+    
     app.get('/blog/:bid', async (req, res) => {
       const id = req.params.bid;
       console.log(id); // Check the value of id
@@ -143,7 +184,32 @@ async function run() {
       const result = await userCollection.insertOne(user)
       res.send(result);
     });
+    app.get('/users/:email',async (req,res)=>{
+      try {
+        const userEmail= req.params.email;
+        
+        const query = {email: userEmail};
+        const user = await userCollection.findOne(query);
+        if (user){
+          res.json({role:user.role});
 
+        }
+        else{
+          res.status(404).json({error:'User not found'})
+        }
+     
+      }
+      catch(error){
+        console.error('Error fetching user role',error)
+        res.status(500).json({error:'Internal server error'})
+      }
+  })
+  app.get('/users',async(req,res)=>{
+    const query={}
+    const users=await userCollection.find(query).toArray();
+    console.log(users)
+    res.send(users)
+  })
     app.post('/reviews', async (req, res) => {
       const review = req.body;
       console.log(review)
@@ -184,7 +250,25 @@ async function run() {
       console.log(result)
       res.json(result);
     });
-    
+    app.patch('/users/:id', async (req, res) => {
+      const userId = req.params.id;
+
+      try {
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { role: 'admin' } }
+        );
+
+        if (result.modifiedCount === 1) {
+          res.json({ message: 'User role updated to admin successfully' });
+        } else {
+          res.status(404).json({ error: 'User not found' });
+        }
+      } catch (error) {
+        console.error('Error updating user role:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+      }
+    });
     
     
 
@@ -218,7 +302,7 @@ app.post('/jwt', (req, res) => {
   res.send({ token })
 })
 app.post('/create-payment-intent', verifyJWT, async (req, res) => {
-  const { totalPrice, name } = req.body;
+  const { totalPrice, name, id } = req.body;
   const amount = totalPrice * 100;
   console.log(totalPrice, name)
   const paymentIntent = await stripe.paymentIntents.create({
